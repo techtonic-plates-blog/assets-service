@@ -24,7 +24,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/techtonic-plates-posts-service /app/techtonic-plates-posts-service
+COPY --from=builder /app/target/release/images-service /app/images-service
 
 # Copy any other necessary files (e.g., migrations, configs)
 # COPY --from=builder /app/migration /app/migration
@@ -36,4 +36,4 @@ RUN chown -R appuser:appgroup /app
 USER appuser
 
 # Set the startup command
-CMD ["/app/techtonic-plates-posts-service"]
+CMD ["/app/images-service"]
