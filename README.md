@@ -1,4 +1,4 @@
-# Posts service
+# Images service
 
 This is the microservice for handling images in the Thechtonic plates blog.
 
