@@ -1,5 +1,5 @@
 use crate::connections::ObjectStorage;
-use crate::connections::object_storage::IMAGES_FILE_BUCKET;
+use crate::connections::object_storage::ASSETS_FILE_BUCKET;
 use crate::routes::ApiTags;
 use bytes::Bytes;
 use minio::s3::segmented_bytes::SegmentedBytes;
@@ -12,7 +12,7 @@ use poem_openapi::payload::{Attachment, PlainText};
 use poem_openapi::types::multipart::Upload;
 use poem_openapi::{ApiResponse, OpenApi, param::Path};
 
-pub struct ImagesApi;
+pub struct AssetsApi;
 #[derive(ApiResponse)]
 enum GetImageResponse {
     #[oai(status = 200)]
@@ -23,18 +23,18 @@ enum GetImageResponse {
 
 #[derive(Multipart, Debug)]
 pub struct PutImageRequest {
-    pub image: Upload,
+    pub asset: Upload,
 }
 
-#[OpenApi(prefix_path = "/images", tag = "ApiTags::Posts")]
-impl ImagesApi {
-    #[oai(method = "get", path = "/:image")]
-    async fn get_image(
+#[OpenApi(prefix_path = "/assets", tag = "ApiTags::Posts")]
+impl AssetsApi {
+    #[oai(method = "get", path = "/:asset")]
+    async fn get_asset(
         &self,
-        image: Path<String>,
+        asset: Path<String>,
         object_storage: Data<&ObjectStorage>,
     ) -> Result<GetImageResponse> {
-        let get_object_request = object_storage.get_object(IMAGES_FILE_BUCKET, &*image);
+        let get_object_request = object_storage.get_object(ASSETS_FILE_BUCKET, &*asset);
 
         let response = match get_object_request.send().await {
             Ok(response) => response,
@@ -63,27 +63,27 @@ impl ImagesApi {
         let bytes = segmented_bytes.to_bytes();
         let bytes = bytes.to_vec();
 
-        let attachment = Attachment::new(bytes).filename(&*image);
+        let attachment = Attachment::new(bytes).filename(&*asset);
 
         return Ok(GetImageResponse::Ok(attachment));
     }
     #[oai(method = "put", path = "/")]
-    async fn put_image(
+    async fn put_asset(
         &self,
         object_storage: Data<&ObjectStorage>,
         request: PutImageRequest,
     ) -> Result<PlainText<String>> {
-        let image = request.image;
+        let asset = request.asset;
 
-        let Some(name) = image.file_name() else {
+        let Some(name) = asset.file_name() else {
             return Err(Error::from_status(StatusCode::BAD_REQUEST));
         };
         let name = name.to_string();
 
-        let contents = image.into_vec().await.map_err(InternalServerError)?;
+        let contents = asset.into_vec().await.unwrap();
 
         let put_object_request = object_storage.put_object(
-            IMAGES_FILE_BUCKET,
+            ASSETS_FILE_BUCKET,
             &*name,
             SegmentedBytes::from(Bytes::from(contents)),
         );
@@ -91,8 +91,8 @@ impl ImagesApi {
         put_object_request
             .send()
             .await
-            .map_err(InternalServerError)?;
+            .unwrap();
 
-        Ok(PlainText(format!("/images/{}", name)))
+        Ok(PlainText(format!("/assets/{}", name)))
     }
 }

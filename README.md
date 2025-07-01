@@ -1,6 +1,6 @@
-# Images service
+# Assets service
 
-This is the microservice for handling images in the Thechtonic plates blog.
+This is the microservice for handling assets in the Thechtonic plates blog.
 
 ## How to run
 
@@ -9,7 +9,7 @@ To run the microservice simply compile the application with:
 cargo build --release
 ```
 
-And execute the binary web server at: ```target/release/images-service```.
+And execute the binary web server at: ```target/release/assets-service```.
 
 #### OR
 

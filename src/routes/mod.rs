@@ -1,7 +1,7 @@
 
 use poem_openapi::{OpenApi, Tags};
 
-mod images;
+mod assets;
 
 #[derive(Debug, Tags)]
 #[allow(dead_code)]
@@ -21,5 +21,5 @@ impl RootApi {
 }
 
 pub fn api() -> impl OpenApi {
-    (RootApi, images::ImagesApi)
+    (RootApi, assets::AssetsApi)
 }

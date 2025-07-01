@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use minio::s3::{creds::StaticProvider, http::BaseUrl, Client as MinioClient, ClientBuilder};
 
-pub const IMAGES_FILE_BUCKET: &str = "images";
+pub const ASSETS_FILE_BUCKET: &str = "assets-files";
 
 #[derive(Clone)]
 pub struct ObjectStorage(MinioClient);
