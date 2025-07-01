@@ -6,7 +6,7 @@ mod assets;
 #[derive(Debug, Tags)]
 #[allow(dead_code)]
 pub enum ApiTags {
-    Posts,
+    Assets,
 
 }
 

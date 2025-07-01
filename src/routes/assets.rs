@@ -26,7 +26,7 @@ pub struct PutImageRequest {
     pub asset: Upload,
 }
 
-#[OpenApi(prefix_path = "/assets", tag = "ApiTags::Posts")]
+#[OpenApi(prefix_path = "/assets", tag = "ApiTags::Assets")]
 impl AssetsApi {
     #[oai(method = "get", path = "/:asset")]
     async fn get_asset(
