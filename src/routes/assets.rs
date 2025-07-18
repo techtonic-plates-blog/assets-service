@@ -17,6 +17,29 @@ use futures_util::StreamExt;
 
 pub struct AssetsApi;
 
+fn is_valid_asset_type(filename: &str) -> bool {
+    let filename_lower = filename.to_lowercase();
+    
+    // Image file extensions
+    let image_extensions = [
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".tiff", ".tif", ".ico"
+    ];
+    
+    // Audio file extensions  
+    let audio_extensions = [
+        ".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma", ".opus"
+    ];
+    
+    // Video file extensions
+    let video_extensions = [
+        ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mkv", ".m4v", ".3gp", ".ogv"
+    ];
+    
+    image_extensions.iter().any(|ext| filename_lower.ends_with(ext)) ||
+    audio_extensions.iter().any(|ext| filename_lower.ends_with(ext)) ||
+    video_extensions.iter().any(|ext| filename_lower.ends_with(ext))
+}
+
 #[derive(Serialize, Deserialize, poem_openapi::Object)]
 pub struct AssetInfo {
     pub name: String,
@@ -66,6 +89,14 @@ enum AssetInfoResponse {
 enum BatchAssetInfoApiResponse {
     #[oai(status = 200)]
     Ok(Json<BatchAssetInfoResponse>),
+}
+
+#[derive(ApiResponse)]
+enum PutAssetResponse {
+    #[oai(status = 200)]
+    Ok(PlainText<String>),
+    #[oai(status = 415)]
+    UnsupportedMediaType,
 }
 
 #[derive(Multipart, Debug)]
@@ -120,7 +151,7 @@ impl AssetsApi {
         claims: BearerAuthorization,
         object_storage: Data<&ObjectStorage>,
         request: PutImageRequest,
-    ) -> Result<PlainText<String>> {
+    ) -> Result<PutAssetResponse> {
         if !claims.permissions.contains(&"add asset".to_string()) {
             return Err(Error::from_status(StatusCode::FORBIDDEN));
         }
@@ -131,6 +162,11 @@ impl AssetsApi {
             return Err(Error::from_status(StatusCode::BAD_REQUEST));
         };
         let name = name.to_string();
+
+        // Validate file type - only allow images, audio, and video files
+        if !is_valid_asset_type(&name) {
+            return Ok(PutAssetResponse::UnsupportedMediaType);
+        }
 
         let contents = asset.into_vec().await.unwrap();
 
@@ -145,7 +181,7 @@ impl AssetsApi {
             .await
             .unwrap();
 
-        Ok(PlainText(format!("/assets/{}", name)))
+        Ok(PutAssetResponse::Ok(PlainText(format!("/assets/{}", name))))
     }
 
     #[oai(method = "get", path = "/")]
