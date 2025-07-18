@@ -1,3 +1,4 @@
+use crate::auth::BearerAuthorization;
 use crate::connections::ObjectStorage;
 use crate::connections::object_storage::ASSETS_FILE_BUCKET;
 use crate::routes::ApiTags;
@@ -116,9 +117,14 @@ impl AssetsApi {
     #[oai(method = "put", path = "/")]
     async fn put_asset(
         &self,
+        claims: BearerAuthorization,
         object_storage: Data<&ObjectStorage>,
         request: PutImageRequest,
     ) -> Result<PlainText<String>> {
+        if !claims.permissions.contains(&"add asset".to_string()) {
+            return Err(Error::from_status(StatusCode::FORBIDDEN));
+        }
+
         let asset = request.asset;
 
         let Some(name) = asset.file_name() else {
