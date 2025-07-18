@@ -1,12 +1,11 @@
-use poem::{
- Request
-};
-use poem_openapi::{
+use std::ops::{Deref, DerefMut};
 
- SecurityScheme,
-    auth::Bearer
-};
+use jsonwebtoken::{decode, Algorithm, Validation};
+use poem::Request;
+use poem_openapi::{SecurityScheme, auth::Bearer};
 use serde::{Deserialize, Serialize};
+
+use crate::config::CONFIG;
 
 /// Our claims struct, it needs to derive `Serialize` and/or `Deserialize`
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -14,21 +13,42 @@ pub struct Claims {
     pub sub: String,
     pub company: String,
     pub exp: usize,
+    pub permissions: Vec<String>,
 }
-
 
 #[derive(SecurityScheme)]
 #[oai(
     ty = "bearer",
     key_in = "header",
     key_name = "Bearer",
-    checker="key_checker"
+    checker = "key_checker"
 )]
 #[allow(dead_code)]
 pub struct BearerAuthorization(pub Claims);
 
-async fn key_checker(req: &Request, token: Bearer) -> Option<Claims> {
+async fn key_checker(_: &Request, token: Bearer) -> Option<Claims> {
+    let decoding_key = jsonwebtoken::DecodingKey::from_rsa_pem(CONFIG.jwt_public_key.as_bytes()).ok()?;
+    let Ok(token) = decode(
+        &token.token,
+        &decoding_key,
+        &Validation::new(Algorithm::RS256),
+    ) else {
+        return None;
+    };
+    Some(token.claims)
+}
 
+impl Deref for BearerAuthorization {
+    type Target = Claims;
 
-    return Some(Default::default())
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for BearerAuthorization {
+
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
