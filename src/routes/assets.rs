@@ -3,41 +3,47 @@ use crate::connections::ObjectStorage;
 use crate::connections::object_storage::ASSETS_FILE_BUCKET;
 use crate::routes::ApiTags;
 use bytes::Bytes;
+use futures_util::StreamExt;
 use minio::s3::segmented_bytes::SegmentedBytes;
 use minio::s3::types::{S3Api, ToStream};
 use poem::Error;
 use poem::http::StatusCode;
 use poem::{Result, error::InternalServerError, web::Data};
 use poem_openapi::Multipart;
-use poem_openapi::payload::{Attachment, PlainText, Json};
+use poem_openapi::payload::{Attachment, Json, PlainText};
 use poem_openapi::types::multipart::Upload;
 use poem_openapi::{ApiResponse, OpenApi, param::Path};
 use serde::{Deserialize, Serialize};
-use futures_util::StreamExt;
 
 pub struct AssetsApi;
 
 fn is_valid_asset_type(filename: &str) -> bool {
     let filename_lower = filename.to_lowercase();
-    
+
     // Image file extensions
     let image_extensions = [
-        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".tiff", ".tif", ".ico"
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".tiff", ".tif", ".ico",
     ];
-    
-    // Audio file extensions  
+
+    // Audio file extensions
     let audio_extensions = [
-        ".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma", ".opus"
+        ".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma", ".opus",
     ];
-    
+
     // Video file extensions
     let video_extensions = [
-        ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mkv", ".m4v", ".3gp", ".ogv"
+        ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mkv", ".m4v", ".3gp", ".ogv",
     ];
-    
-    image_extensions.iter().any(|ext| filename_lower.ends_with(ext)) ||
-    audio_extensions.iter().any(|ext| filename_lower.ends_with(ext)) ||
-    video_extensions.iter().any(|ext| filename_lower.ends_with(ext))
+
+    image_extensions
+        .iter()
+        .any(|ext| filename_lower.ends_with(ext))
+        || audio_extensions
+            .iter()
+            .any(|ext| filename_lower.ends_with(ext))
+        || video_extensions
+            .iter()
+            .any(|ext| filename_lower.ends_with(ext))
 }
 
 #[derive(Serialize, Deserialize, poem_openapi::Object)]
@@ -122,13 +128,18 @@ impl AssetsApi {
                         if status.as_u16() == 404 {
                             return Ok(GetImageResponse::NotFound);
                         } else {
+                            println!("Error fetching asset: {}", error);
                             return Err(InternalServerError(error));
                         }
                     } else {
+                        println!("Error fetching asset: {}", error);
                         return Err(InternalServerError(error));
                     }
                 }
-                _ => return Err(InternalServerError(why)),
+                why => {
+                    println!("Error fetching asset: {}", why);
+                    return Err(InternalServerError(why));
+                }
             },
         };
 
@@ -176,10 +187,7 @@ impl AssetsApi {
             SegmentedBytes::from(Bytes::from(contents)),
         );
 
-        put_object_request
-            .send()
-            .await
-            .unwrap();
+        put_object_request.send().await.unwrap();
 
         Ok(PutAssetResponse::Ok(PlainText(format!("/assets/{}", name))))
     }
@@ -191,26 +199,27 @@ impl AssetsApi {
     ) -> Result<ListAssetsApiResponse> {
         let mut stream = (**object_storage)
             .list_objects(ASSETS_FILE_BUCKET)
-            .recursive(true)
+            .recursive(false)
+            .disable_url_encoding(true)
             .use_api_v1(false) // use v2
             .to_stream()
             .await;
-        
+
         let mut asset_names = Vec::new();
-        
+
         while let Some(result) = stream.next().await {
             match result {
                 Ok(response) => {
                     for object in response.contents {
+                    
                         asset_names.push(object.name);
                     }
                 }
                 Err(e) => return Err(InternalServerError(e)),
             }
         }
-        
         let total_count = asset_names.len();
-        
+
         Ok(ListAssetsApiResponse::Ok(Json(ListAssetsResponse {
             assets: asset_names,
             total_count,
@@ -246,7 +255,10 @@ impl AssetsApi {
         let asset_info = AssetInfo {
             name: response.object,
             size: response.size as u64,
-            last_modified: response.last_modified.map(|dt| dt.to_rfc3339()).unwrap_or_default(),
+            last_modified: response
+                .last_modified
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_default(),
         };
 
         Ok(AssetInfoResponse::Ok(Json(asset_info)))
@@ -268,7 +280,10 @@ impl AssetsApi {
                     assets.push(AssetInfo {
                         name: response.object,
                         size: response.size as u64,
-                        last_modified: response.last_modified.map(|dt| dt.to_rfc3339()).unwrap_or_default(),
+                        last_modified: response
+                            .last_modified
+                            .map(|dt| dt.to_rfc3339())
+                            .unwrap_or_default(),
                     });
                 }
                 Err(_) => {
@@ -278,8 +293,8 @@ impl AssetsApi {
             }
         }
 
-        Ok(BatchAssetInfoApiResponse::Ok(Json(BatchAssetInfoResponse {
-            assets,
-        })))
+        Ok(BatchAssetInfoApiResponse::Ok(Json(
+            BatchAssetInfoResponse { assets },
+        )))
     }
 }
