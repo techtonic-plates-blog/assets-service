@@ -105,6 +105,14 @@ enum PutAssetResponse {
     UnsupportedMediaType,
 }
 
+#[derive(ApiResponse)]
+enum DeleteAssetResponse {
+    #[oai(status = 204)]
+    NoContent,
+    #[oai(status = 404)]
+    NotFound,
+}
+
 #[derive(Multipart, Debug)]
 pub struct PutImageRequest {
     pub asset: Upload,
@@ -296,5 +304,42 @@ impl AssetsApi {
         Ok(BatchAssetInfoApiResponse::Ok(Json(
             BatchAssetInfoResponse { assets },
         )))
+    }
+
+    #[oai(method = "delete", path = "/:asset")]
+    async fn delete_asset(
+        &self,
+        asset: Path<String>,
+        claims: BearerAuthorization,
+        object_storage: Data<&ObjectStorage>,
+    ) -> Result<DeleteAssetResponse> {
+        if !claims.permissions.contains(&"delete asset".to_string()) {
+            return Err(Error::from_status(StatusCode::FORBIDDEN));
+        }
+
+        let delete_object_request =  object_storage.delete_object(ASSETS_FILE_BUCKET, &*asset);
+
+        match delete_object_request.send().await {
+            Ok(_) => Ok(DeleteAssetResponse::NoContent),
+            Err(why) => match why {
+                minio::s3::error::Error::HttpError(error) => {
+                    if let Some(status) = error.status() {
+                        if status.as_u16() == 404 {
+                            return Ok(DeleteAssetResponse::NotFound);
+                        } else {
+                            println!("Error deleting asset: {}", error);
+                            return Err(InternalServerError(error));
+                        }
+                    } else {
+                        println!("Error deleting asset: {}", error);
+                        return Err(InternalServerError(error));
+                    }
+                }
+                why => {
+                    println!("Error deleting asset: {}", why);
+                    return Err(InternalServerError(why));
+                }
+            },
+        }
     }
 }
