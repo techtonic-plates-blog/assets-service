@@ -171,7 +171,7 @@ impl AssetsApi {
         object_storage: Data<&ObjectStorage>,
         request: PutImageRequest,
     ) -> Result<PutAssetResponse> {
-        if !claims.permissions.contains(&"add asset".to_string()) {
+        if !claims.has_permission("create", "asset") {
             return Err(Error::from_status(StatusCode::FORBIDDEN));
         }
 
@@ -313,7 +313,7 @@ impl AssetsApi {
         claims: BearerAuthorization,
         object_storage: Data<&ObjectStorage>,
     ) -> Result<DeleteAssetResponse> {
-        if !claims.permissions.contains(&"delete asset".to_string()) {
+        if !claims.has_permission("delete", "asset") {
             return Err(Error::from_status(StatusCode::FORBIDDEN));
         }
 
